@@ -1,0 +1,146 @@
+print("----------------------------START PROGRAM----------------------------")
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+from bs4 import BeautifulSoup
+import requests
+import re
+
+driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
+#using chrome 104
+
+#----------begin login----------
+email = "ethanctrooer@yahoo.com"
+password = "Zippo123!"
+
+driver.get("https://linkedin.com/login")
+WebDriverWait(driver,10).until(EC.element_to_be_clickable(("id","username")))
+
+try:
+    driver.find_element("id", "username").send_keys(email)
+    driver.find_element("id", "password").send_keys(password)
+    driver.find_element("id", "password").send_keys(Keys.RETURN)
+except:
+    print("fix this later lmao")
+
+#----------end login----------
+
+#change the a to vary by page
+driver.get("https://www.linkedin.com/directory/jobs/a?trk=jobs_directory_letter_nav")
+
+#items = driver.find_elements("class name", "listings__entry-link")
+items = driver.find_element("xpath", '//*[@id="main-content"]/section[2]/div/ul').find_elements("tag name", "li")
+
+#do this to avoid stale element reference, same reason for the one below
+#NOTE: big_links stores all the companies for current letter in the alphabet
+big_links = []
+for item in items:
+    big_links.append(item.find_element('xpath', './/a[@href]').get_attribute('href'))
+    #this step seems to be extremely inefficient, find way to speed up
+
+big_counter = 0 #FOR TEST LIMITING - enable to limit number of companies
+
+#NOTE: iterate through all the companies in current letter
+for current_link in big_links:
+    if big_counter == 2: #FOR TEST LIMITING - enable to limit number of companies
+        break
+
+    #NOTE: load current company in current letter
+    driver.get(current_link)
+
+    #NOTE: wait for element (WIP)
+    WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
+    time.sleep(3) #used to be 5, play around with this
+
+    #NOTE: Grab all the pages for the company's job listings (1)
+    pages = driver.find_element("class name", "artdeco-pagination__pages.artdeco-pagination__pages--number").find_elements("xpath", "*")
+    #some intermediary pages missing so cant iterate, take last number and find button with next number (2)
+    length_pages = int(pages[len(pages)-1].text)
+
+    #NOTE: iterate through said pages from (1) and (2)
+    for i in range(2,length_pages+1): #do not include first elem b/c that's loaded initially
+        if i==9: #for case where need to start going into intermediate numbers
+            current_button = driver.find_element(By.CSS_SELECTOR, '[aria-label="Page 9"]')
+            #aria label could also be used below, might be better for longevity
+        else:
+            #https://stackoverflow.com/questions/26304224/find-element-by-attribute
+            current_button = driver.find_element(By.CSS_SELECTOR, 'li[data-test-pagination-page-btn="{}"]'.format(i))
+
+        #----------IMPORTANT: Begin load & grab all jobs in list----------
+        #IMPORTANT #NOTE #NOTE
+        #MUST do this block in order to get ALL jobs, otherwise some will be missed
+        #NOTE: get all the (currently unloaded) jobs for current page
+        temp = driver.find_element("class name", "scaffold-layout__list-container").find_elements("xpath", "*")
+        time.sleep(2)
+        #
+        #NOTE: scroll through all (currently unloaded) jobs to load them
+        for tem in temp:
+            driver.execute_script("return arguments[0].scrollIntoView(true);", tem)
+            time.sleep(0.1) #add delay to allow for loading time and ensure they load
+        #
+        #NOTE: get all the (now loaded) jobs for current page
+        jobs_list = driver.find_element("class name", "scaffold-layout__list-container").find_elements("xpath", "*")
+        #----------End load & grab all jobs in list----------
+
+        #print(len(jobs_list)) - enable for sanity check, should be 25 if there are multiple pages (?)
+
+        #counter = 0 #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+
+        #NOTE: store all the job links in array, to load them in another page
+        #TODO: this might not be needed now that a new tab is being opened, might still be more efficient for time
+        jobs_links = []
+        for job in jobs_list:
+            #print(job.text)
+            #if counter == 20: #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+            #   break
+            #NOTE: grab link from each item (i.e. card) in jobs_list
+            try:
+                link = job.find_elements('xpath', './/a[@href]') #this has all the links in each card, not just job (others include logo, city, company, etc.)
+                jobs_links.append(link[1].get_attribute('href')) #this [1] gets the link that we want, check in debug
+            except Exception as ex:
+                template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+                message = template.format(type(ex).__name__, ex.args)
+                print(message)
+            #counter += 1 #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+
+        #print(len(jobs_links)) - enable for sanity check, should be 25 if there are multiple pages (!)
+
+        #----------Transition to text grab----------
+        
+        #NOTE: open new tab for linkedin jobs
+        #NOTE: this is done to keep previous page loaded, so that the page iteration stays tied to that page
+        #https://www.tutorialspoint.com/how-to-close-active-current-tab-without-closing-the-browser-in-selenium-python
+        driver.execute_script("window.open('https://www.google.com')")
+        parent_tab = driver.window_handles[0]
+        child_tab = driver.window_handles[1]
+        driver.switch_to.window(child_tab) #switch to child tab in driver
+
+        #NOTE: get text from all jobs in current page
+        #----------Begin grab text from job----------
+        for link in jobs_links:
+            driver.get(link)
+            WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","search-global-typeahead__input.always-show-placeholder")))
+            time.sleep(3) #NOTE: wait this out to avoid HTTP 429
+            description = driver.find_element("id", "job-details")
+            #job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title")
+            print(description.text)
+            #TODO: remove text "About the job", "Summary", "Description", etc.
+            print("--------------------")
+            #WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
+            #better to get all hrefs at once and load each sequentially - do this later - done this now
+        #----------End grab text from job----------
+
+
+        #NOTE: kill child tab to return for page iteration in jobs_list
+        driver.close()
+        driver.switch_to.window(parent_tab) #return to tab
+
+        big_counter += 1 #add to counter FOR TEST LIMITING - enable to limit number of companies
+
+        #NOTE: iterate to next page of jobs_list
+        current_button.click()
+        time.sleep(3) #really bad get a webdriverwait here
