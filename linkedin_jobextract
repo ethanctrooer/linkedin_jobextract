@@ -9,9 +9,16 @@ import time
 from bs4 import BeautifulSoup
 import requests
 import re
+import pyorc
 
+#----------begin initialization----------
+#initialize selenium driver, using Chrome 104 (change path to local chromedriver path)
 driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
-#using chrome 104
+
+#initialize ORC writer
+output = open("./new.orc", "wb")
+writer = pyorc.Writer(output, "struct<col0:string,col1:string,col2:string>") #format here <comapny,job title,description>
+#----------end initialization----------
 
 #----------begin login----------
 email = "ethanctrooer@yahoo.com"
@@ -33,7 +40,7 @@ except:
 driver.get("https://www.linkedin.com/directory/jobs/a?trk=jobs_directory_letter_nav")
 
 #items = driver.find_elements("class name", "listings__entry-link")
-items = driver.find_element("xpath", '//*[@id="main-content"]/section[2]/div/ul').find_elements("tag name", "li")
+items = driver.find_element("xpath", '//*[@id="main-content"]/section[2]/div/ul').find_elements("tag name", "li") #this should really just be a children grab
 
 #do this to avoid stale element reference, same reason for the one below
 #NOTE: big_links stores all the companies for current letter in the alphabet
@@ -125,9 +132,15 @@ for current_link in big_links:
             driver.get(link)
             WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","search-global-typeahead__input.always-show-placeholder")))
             time.sleep(3) #NOTE: wait this out to avoid HTTP 429
-            description = driver.find_element("id", "job-details")
-            #job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title")
-            print(description.text)
+            description = driver.find_element("id", "job-details").text
+            job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title").text
+            company = driver.find_element("class name", "jobs-unified-top-card__company-name").text
+            print(description)
+            print(job_title)
+            print(company)
+
+            writer.write((company,job_title,description))
+            #writer.close() #temporary
             #TODO: remove text "About the job", "Summary", "Description", etc.
             print("--------------------")
             #WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
@@ -144,3 +157,5 @@ for current_link in big_links:
         #NOTE: iterate to next page of jobs_list
         current_button.click()
         time.sleep(3) #really bad get a webdriverwait here
+
+writer.close() #close writer
