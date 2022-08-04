@@ -10,14 +10,22 @@ from bs4 import BeautifulSoup
 import requests
 import re
 import pyorc
+import csv
 
 #----------begin initialization----------
 #initialize selenium driver, using Chrome 104 (change path to local chromedriver path)
 driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
 
 #initialize ORC writer
-output = open("./new.orc", "wb")
-writer = pyorc.Writer(output, "struct<col0:string,col1:string,col2:string>") #format here <comapny,job title,description>
+#output = open("./new.orc", "wb")
+#writer = pyorc.Writer(output, "struct<col0:string,col1:string,col2:string>") #format here <comapny,job title,description>
+
+#initialize CSV writer
+output = open("./data.csv", "w")
+writer = csv.writer(output)
+#set header
+header = ["Company", "Job Title", "Description"]
+writer.writerow(header)
 #----------end initialization----------
 
 #----------begin login----------
@@ -135,14 +143,23 @@ for current_link in big_links:
             description = driver.find_element("id", "job-details").text
             job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title").text
             company = driver.find_element("class name", "jobs-unified-top-card__company-name").text
-            print(description)
-            print(job_title)
-            print(company)
 
-            writer.write((company,job_title,description))
+            #for testing
+            #print(description)
+            #print(job_title)
+            #print(company)
+
+            #initialize data array for writing to file
+            data = [company, job_title, description]
+
+            #write data to file
+            #writer.write((company,job_title,description))
+            writer.writerow(data)
+
+
             #writer.close() #temporary
             #TODO: remove text "About the job", "Summary", "Description", etc.
-            print("--------------------")
+            #print("--------------------")
             #WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
             #better to get all hrefs at once and load each sequentially - do this later - done this now
         #----------End grab text from job----------
@@ -159,3 +176,10 @@ for current_link in big_links:
         time.sleep(3) #really bad get a webdriverwait here
 
 writer.close() #close writer
+
+# limit to cybersecurity & IT jobs
+# check cisco recommended jobs & job titles
+# move on to NLP
+# come up with ~10 search words/terms to grab the above
+# do analysis of top companies, jobs, etc. and put into a bar graph to show 
+# say "this is what I found on linkedin"
