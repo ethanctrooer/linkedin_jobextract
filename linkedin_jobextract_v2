@@ -1,0 +1,241 @@
+print("----------------------------START PROGRAM----------------------------")
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+from bs4 import BeautifulSoup
+import requests
+import re
+import pyorc
+import csv
+
+#NOTE: keep all functions within same file for now to maintain common webdriverelement and writerelement
+
+#----------begin initialization----------
+#initialize selenium driver, using Chrome 104 (change path to local chromedriver path)
+driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
+
+#initialize ORC writer
+#output = open("./new.orc", "wb")
+#writer = pyorc.Writer(output, "struct<col0:string,col1:string,col2:string>") #format here <comapny,job title,description>
+
+#initialize CSV writer
+output = open("./data.csv", "w")
+writer = csv.writer(output)
+#set header
+header = ["Company", "Job Title", "Description"]
+writer.writerow(header)
+
+#----------end initialization----------
+
+#----------begin login----------
+email = "ethanctrooer@yahoo.com"
+password = "Zippo123!"
+
+driver.get("https://linkedin.com/login")
+WebDriverWait(driver,10).until(EC.element_to_be_clickable(("id","username")))
+
+try:
+    driver.find_element("id", "username").send_keys(email)
+    driver.find_element("id", "password").send_keys(password)
+    driver.find_element("id", "password").send_keys(Keys.RETURN)
+except:
+    print("fix this later lmao")
+
+#----------end login----------
+
+#change the a to vary by page
+#driver.get("https://www.linkedin.com/directory/jobs/a?trk=jobs_directory_letter_nav")
+#NOTE: TEMPORARILY DISBALED REENABLE TO GET ALL JOBS
+
+#items = driver.find_elements("class name", "listings__entry-link")
+#companies = driver.find_element("xpath", '//*[@id="main-content"]/section[2]/div/ul').find_elements("tag name", "li") #this should really just be a children grab
+#NOTE: TEMPORARILY DISBALED REENABLE TO GET ALL JOBS
+
+#do this to avoid stale element reference, same reason for the one below
+#NOTE: company_links stores all the companies for current letter in the alphabet
+company_links = []
+#for company in companies:
+#    company_links.append(company.find_element('xpath', './/a[@href]').get_attribute('href'))
+    #this step seems to be extremely inefficient, find way to speed up
+#NOTE: TEMPORARYILY DISABLED
+#NOTE: TEMPORARILY DISABLED REENABLE TO GET ALL JOBS
+
+#get_jobs_from_company(company_links) look for call below
+driver.get("https://www.linkedin.com/jobs")
+search_term = "cybersecurity"
+driver.find_element(By.CSS_SELECTOR, '[aria-label="Search by title, skill, or company"]').send_keys(search_term)
+time.sleep(1)
+driver.find_element(By.CSS_SELECTOR, '[aria-label="Search by title, skill, or company"]').send_keys(Keys.RETURN)
+time.sleep(2)
+company_links.append(driver.current_url)
+
+#NOTE: may be run for many companies/search pages or just one
+#NOTE: run code to:
+#      for each company/page, open the page
+#           starting at page 1: 
+#               scroll down job cards to load them 
+#               grab job-specific links from each job card:
+#                   open new tab with said links for each job
+#                       get job title, company name, and job description from job
+#                       write this info to file
+#                   close job-specific tab
+#           repeat for each page in specific page
+#      repeat for each company/page in company_links
+def get_jobs_from_company(company_links):
+    company_counter = 0 #FOR TEST LIMITING - enable to limit number of companies
+
+    #NOTE: iterate through all the companies in current letter
+    for current_link in company_links:
+        if company_counter == 2: #FOR TEST LIMITING - enable to limit number of companies
+            break
+
+        #NOTE: load current company in current letter
+        driver.get(current_link)
+
+        #NOTE: wait for element (WIP)
+        WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
+        time.sleep(3) #used to be 5, play around with this
+
+        #NOTE: Grab all the pages for the company's job listings (1)
+        #      These are the page numbers at the bottom of the job list
+        pages = driver.find_element("class name", "artdeco-pagination__pages.artdeco-pagination__pages--number").find_elements("xpath", "*")
+        #some intermediary pages missing so cant keep clicking next, take last number and find button with next number (2)
+        length_pages = int(pages[len(pages)-1].text)
+
+        #NOTE: iterate through said pages from (1) and (2)
+        for i in range(2,length_pages+1): #do not include first elem b/c that's loaded initially
+            if i==9: #for case where need to start going into intermediate numbers
+                current_button = driver.find_element(By.CSS_SELECTOR, '[aria-label="Page 9"]')
+                #aria label could also be used below, might be better for longevity
+            else:
+                #https://stackoverflow.com/questions/26304224/find-element-by-attribute
+                current_button = driver.find_element(By.CSS_SELECTOR, 'li[data-test-pagination-page-btn="{}"]'.format(i))
+
+            #IMPORTANT: Load & grab all jobs on page
+            jobs_list = grab_and_load_jobs_list()
+
+            #grab job specific link from job_list
+            jobs_links = get_jobs_links(jobs_list)
+            
+            #NOTE: open new tab for linkedin jobs
+            #NOTE: this is done to keep previous page loaded, so that the page iteration stays tied to that page
+            #https://www.tutorialspoint.com/how-to-close-active-current-tab-without-closing-the-browser-in-selenium-python
+            driver.execute_script("window.open('https://www.google.com')")
+            parent_tab = driver.window_handles[0]
+            child_tab = driver.window_handles[1]
+            driver.switch_to.window(child_tab) #switch to child tab in driver
+
+            #----------Begin grab text from job----------
+            get_job_text(jobs_links)
+            #writer.close() #temporary
+            #TODO: remove text "About the job", "Summary", "Description", etc.
+            #print("--------------------")
+            #WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","jobs-search-box__text-input")))
+            #----------End grab text from job----------
+
+            #NOTE: kill child tab to return for page iteration in jobs_list
+            driver.close()
+            driver.switch_to.window(parent_tab) #return to tab
+
+            company_counter += 1 #add to counter FOR TEST LIMITING - enable to limit number of companies
+
+            #NOTE: go to next page of jobs_list
+            current_button.click()
+            time.sleep(3) #really bad get a webdriverwait here
+
+    #end main for loop (loop to get ALL jobs listed)
+#end of get_jobs_from_company
+
+
+
+def grab_and_load_jobs_list():
+    #IMPORTANT #NOTE #NOTE
+    #MUST do this block in order to get ALL jobs, otherwise some will be missed
+
+    #NOTE: get all the (currently unloaded) jobs for current page
+    temp = driver.find_element("class name", "scaffold-layout__list-container").find_elements("xpath", "*")
+    time.sleep(2)
+
+    #NOTE: scroll through all (currently unloaded) jobs to load them
+    for tem in temp:
+        driver.execute_script("return arguments[0].scrollIntoView(true);", tem)
+        time.sleep(0.1) #add delay to allow for loading time and ensure they load
+    
+    #NOTE: get all the (now loaded) jobs for current page
+    jobs_list = driver.find_element("class name", "scaffold-layout__list-container").find_elements("xpath", "*")
+
+    return jobs_list
+#end grab_and_load_jobs_list
+
+
+
+def get_jobs_links(jobs_list):
+    #counter = 0 #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+    #NOTE: store all the job links in array, to load them in another page
+    #TODO: this might not be needed now that a new tab is being opened, might still be more efficient for time
+    jobs_links = []
+    for job in jobs_list:
+        #print(job.text)
+        #if counter == 20: #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+        #   break
+        #NOTE: grab link from each item (i.e. card) in jobs_list
+        try:
+            link = job.find_elements('xpath', './/a[@href]') #this has all the links in each card, not just job (others include logo, city, company, etc.)
+            jobs_links.append(link[1].get_attribute('href')) #this [1] gets the link that we want, check in debug
+        except Exception as ex:
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
+        #counter += 1 #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
+    #print(len(jobs_links)) - enable for sanity check, should be 25 if there are multiple pages (!)
+    return jobs_links
+#end get_jobs_links
+
+
+
+#NOTE: get text from all jobs in current page
+#jobs_links: String[]
+def get_job_text(jobs_links):
+    for link in jobs_links:
+        driver.get(link)
+        WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","search-global-typeahead__input.always-show-placeholder")))
+        time.sleep(3) #NOTE: wait this out to avoid HTTP 429
+        description = driver.find_element("id", "job-details").text
+        job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title").text
+        company = driver.find_element("class name", "jobs-unified-top-card__company-name").text
+
+        #for testing
+        #print(description)
+        #print(job_title)
+        #print(company)
+
+        #initialize data array for writing to file
+        data = [company, job_title, description]
+
+        #write data to file
+        #writer.write((company,job_title,description))
+        writer.writerow(data)
+#end get_job_text_func
+
+
+
+#call main function
+get_jobs_from_company(company_links)
+
+writer.close() #close writer
+
+# limit to cybersecurity & IT jobs
+# check cisco recommended jobs & job titles
+# move on to NLP
+# come up with ~10 search words/terms to grab the above
+# do analysis of top companies, jobs, etc. and put into a bar graph to show 
+# say "this is what I found on linkedin"
+
+
+
+
+
