@@ -197,6 +197,17 @@ def get_jobs_links(jobs_list):
 
 
 
+#NOTE: helper function TO get_job_text
+#      remove extraneous text, IDS from description text
+def clean_description_text(description):
+    clean_description = ""
+
+
+
+    return clean_description
+
+
+
 #NOTE: get text from all jobs in current page
 #jobs_links: String[]
 def get_job_text(jobs_links):
@@ -222,9 +233,12 @@ def get_job_text(jobs_links):
 #end get_job_text_func
 
 
+#----------Begin main function calls----------
 
 #call main function
 get_jobs_from_company(company_links)
+
+#----------End main function calls----------
 
 writer.close() #close writer
 
