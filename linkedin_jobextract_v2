@@ -1,5 +1,6 @@
 print("----------------------------START PROGRAM----------------------------")
 
+from distutils.command.clean import clean
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
@@ -152,6 +153,7 @@ def get_jobs_from_company(company_links):
 
 
 
+#NOTE: get list of job cards from either company or search page
 def grab_and_load_jobs_list():
     #IMPORTANT #NOTE #NOTE
     #MUST do this block in order to get ALL jobs, otherwise some will be missed
@@ -173,6 +175,7 @@ def grab_and_load_jobs_list():
 
 
 
+#NOTE: get job-specific link from job cards
 def get_jobs_links(jobs_list):
     #counter = 0 #FOR TEST LIMITING - enable to limit number of jobs grabbed from each page
     #NOTE: store all the job links in array, to load them in another page
@@ -199,23 +202,41 @@ def get_jobs_links(jobs_list):
 
 #NOTE: helper function TO get_job_text
 #      remove extraneous text, IDS from description text
-def clean_description_text(description):
-    clean_description = ""
-
-
-
+#      only does basic clean, for NLP cleaning use in model
+def basic_text_clean(description: str):
+    clean_description = re.sub(r'\s{2,999}', ' ', description.strip())
+    clean_description = clean_description.removeprefix("About the job")
+    clean_description = clean_description.removeprefix("Description")
+    clean_description = clean_description.removeprefix("Job summary")
+    clean_description = clean_description.removeprefix("Job description")
+    clean_description = clean_description.strip()
+    #TODO: make this actually something, super sloppy
+    #TODO: make the NLP model recognize degrees, take highest (masters phd etc.)
     return clean_description
+#end basic_test_clean
 
 
-
-#NOTE: get text from all jobs in current page
+#NOTE: get text from all jobs in current page AND write text to file
 #jobs_links: String[]
 def get_job_text(jobs_links):
     for link in jobs_links:
         driver.get(link)
         WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","search-global-typeahead__input.always-show-placeholder")))
         time.sleep(3) #NOTE: wait this out to avoid HTTP 429
-        description = driver.find_element("id", "job-details").text
+
+        #get & write text to file
+
+        #get description, find children of job that are last elements (children have no children, mainly to get items in <ul>)
+        desc_list = driver.find_element("id", "job-details").find_elements("xpath", ".//*[not(*)]")
+        #for each child element, get its innerHTML (this is mostly to get text from <li> elements)
+        desc_temp = [] 
+        for desc in desc_list:
+            #print(desc.get_attribute("innerHTML"))
+            desc_temp.append(desc.get_attribute("innerHTML"))
+        #send text through cleaner
+        description = basic_text_clean(' '.join(desc_temp))
+
+        #get rest of description
         job_title = driver.find_element("class name", "t-24.t-bold.jobs-unified-top-card__job-title").text
         company = driver.find_element("class name", "jobs-unified-top-card__company-name").text
 
