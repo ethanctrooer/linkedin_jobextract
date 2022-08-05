@@ -9,9 +9,18 @@ import time
 from bs4 import BeautifulSoup
 import requests
 import re
+import csv
 # as per recommendation from @freylis, compile once only
 CLEANR = re.compile('<.*?>') 
 
+#initialize CSV writer
+output = open("./skillsforall_data.csv", "w")
+writer = csv.writer(output)
+#set header
+header = ["Course Title", "Course Content"]
+writer.writerow(header)
+
+#html stripper
 def cleanhtml(raw_html):
   cleantext = re.sub(CLEANR, '', raw_html)
   return cleantext
@@ -54,15 +63,8 @@ def getHTMLdocument(url):
 
 # assign required credentials
 # assign URL
-#url_to_scrape = "https://practice.geeksforgeeks.org/courses/"
-#url_to_scrape = driver.current_url
-#print(driver.current_url)
   
 # create document
-#html_document = getHTMLdocument(url_to_scrape)
-
-#driver.find_element_by_xpath("//html").get_attribute('outerHTML')
-
 html_document = driver.find_element('xpath', '//html').get_attribute('outerHTML')
   
 # create soap object
@@ -90,7 +92,7 @@ for i in iframes:
 
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-        time.sleep(5)
+        time.sleep(5) #not great
         
         html_document_source = driver.find_element('xpath', '//html').get_attribute('outerHTML')
         soup_source = BeautifulSoup(html_document_source, 'lxml')
@@ -98,9 +100,16 @@ for i in iframes:
         #print(soup_source.find_all(['p', 'dir']))
         soup_text = soup_source.find_all(['p', 'dir'])
         clean_text = basic_text_clean(soup_text)
-        print(clean_text)
 
-        #print(soup_source.get_text)
+        course_title = basic_text_clean(soup_source.find_all(['title']))
+
+        print(clean_text)
+        print(course_title)
+
+        to_write = [course_title, clean_text]
+
+        writer.writerow(to_write)
+
         break
 
 #, src=lambda s: all(word in s for word in ('skillsforall', 'true')))
@@ -109,7 +118,7 @@ for i in iframes:
 
 #print(iframes)
 
-
+writer.close()
 
 
 print("----------------------------END PROGRAM----------------------------")
