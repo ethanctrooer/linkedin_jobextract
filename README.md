@@ -1,2 +1,2 @@
 # linkedin_jobextract
-Scrape LinkedIn for all current jobs and get their descriptions and titles
+Scrape LinkedIn & Skillsforall to get job descriptions & course content respectively, then find similarity value between them
