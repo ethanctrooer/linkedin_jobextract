@@ -10,10 +10,21 @@ import numpy
 #    for row in spamreader:
 #        print(' '.join(row))
 
-pdatabase = pandas.read_csv("data.csv", usecols = ['Description'])
+raw_data = []
+
+pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Description'])
+pdatabase_skillsforall = pandas.read_csv("skillsforall_data.csv", usecols = ['Course Content'])
 #print(df)
 
-raw_data = pdatabase.values.tolist()
+#append doesnt work for some reason
+raw_data_linkedin = (pdatabase_linkedin.values.tolist())
+raw_data_skillsforall = (pdatabase_skillsforall.values.tolist())
+
+#right now only one index in skillsforall, compare all linkedin (values after (1,1)) to it
+for data in raw_data_skillsforall:
+    raw_data.append(data)
+for data in raw_data_linkedin:
+    raw_data.append(data)
 #print(data)
 
 #clean and prepare data for NLP
