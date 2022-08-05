@@ -5,14 +5,14 @@ import csv
 import pandas
 import numpy
 
-#with open('data.csv', newline='') as csvfile:
-#    spamreader = csv.reader(csvfile, delimiter=' ', quotechar='|')
-#    for row in spamreader:
-#        print(' '.join(row))
+#current structure:
+#first value in the similarity array is the skillsforall course content for a specific course
+#all other values are linkedin course contents
 
 raw_data = []
 
-pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Description'])
+pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Company', 'Job Title', 'Description'])
+#pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Description'])
 pdatabase_skillsforall = pandas.read_csv("skillsforall_data.csv", usecols = ['Course Content'])
 #print(df)
 
@@ -24,7 +24,7 @@ raw_data_skillsforall = (pdatabase_skillsforall.values.tolist())
 for data in raw_data_skillsforall:
     raw_data.append(data)
 for data in raw_data_linkedin:
-    raw_data.append(data)
+    raw_data.append([data[2]]) #select 'Description', put in [] to make it work with for in loop in nlp_clean (i think?)
 #print(data)
 
 #clean and prepare data for NLP
@@ -47,6 +47,8 @@ def nlp_clean(raw_data):
 
 data = nlp_clean(raw_data)
 
+
+#NOTE: see note at top of file
 def cos_similarity(data):
     #https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.TfidfVectorizer.html
     #https://stackoverflow.com/questions/8897593/how-to-compute-the-similarity-between-two-text-documents
@@ -56,7 +58,16 @@ def cos_similarity(data):
     return pairwise_similarity
 #end nlp_similarity
 
+
+#run to get best match between first value (skillsforall) and all linkedin jobs
+def best_match(similarity_matrix):
+    print(similarity_matrix[0])
+
+
 similarity = cos_similarity(data).toarray() #this variable is inefficient, translate sparse array to numpy array
 
 print(similarity)
+print("----------")
+best_match(similarity)
+
 print("end program")
