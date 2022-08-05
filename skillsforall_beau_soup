@@ -1,0 +1,115 @@
+print("----------------------------START PROGRAM----------------------------")
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+from bs4 import BeautifulSoup
+import requests
+import re
+# as per recommendation from @freylis, compile once only
+CLEANR = re.compile('<.*?>') 
+
+def cleanhtml(raw_html):
+  cleantext = re.sub(CLEANR, '', raw_html)
+  return cleantext
+
+#see https://www.geeksforgeeks.org/beautifulsoup-scraping-link-from-html/
+
+driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
+
+#----------begin login----------
+email = "ethanctrooer@yahoo.com"
+password = "Zippo123!"
+
+driver.get("https://skillsforall.com")
+WebDriverWait(driver,10).until(EC.element_to_be_clickable(("class name","userIconsize--1lxI6")))
+driver.find_element("class name", "userIconsize--1lxI6").click()
+WebDriverWait(driver,10).until(EC.element_to_be_clickable(("id","username")))
+
+driver.find_element("id", "username").send_keys(email)
+driver.find_element("id", "password").send_keys(password)
+driver.find_element("id", "password").send_keys(Keys.RETURN)
+
+#----------end login----------
+
+#----------begin navigate to course page----------
+
+WebDriverWait(driver,100).until(EC.element_to_be_clickable(("class name","imgPlay--2JLAG.cusAccBtn--btGrR")))
+driver.find_element("class name", "imgPlay--2JLAG.cusAccBtn--btGrR").click()
+time.sleep(2)
+
+#----------end navigate to course page----------
+
+# function to extract html document from given url
+def getHTMLdocument(url):
+      
+    # request for HTML document of given url
+    response = requests.get(url)
+      
+    # response will be provided in JSON format
+    return response.text
+
+# assign required credentials
+# assign URL
+#url_to_scrape = "https://practice.geeksforgeeks.org/courses/"
+#url_to_scrape = driver.current_url
+#print(driver.current_url)
+  
+# create document
+#html_document = getHTMLdocument(url_to_scrape)
+
+#driver.find_element_by_xpath("//html").get_attribute('outerHTML')
+
+html_document = driver.find_element('xpath', '//html').get_attribute('outerHTML')
+  
+# create soap object
+soup = BeautifulSoup(html_document, 'lxml')
+
+#NOTE: only does basic clean, for NLP cleaning use in model
+def basic_text_clean(soup_text: str):
+    clean_soup = re.sub(r'\s{2,999}', ' ', cleanhtml(str(soup_text)))
+    return clean_soup
+#end basic_test_clean
+
+iframes = soup.find_all('iframe')
+for i in iframes:
+    #print(i)
+    #print(type(i))
+    source = i.get('src')
+    #print(i.get('src'))
+    if "skillsforall" in source:
+        driver.get(source)
+        #time.sleep(7) #this bad
+        WebDriverWait(driver,100).until(EC.element_to_be_clickable(("class name","introoutro__action.btn-action.introoutro__skip")))
+        driver.find_element("class name", "introoutro__action.btn-action.introoutro__skip").click()
+        WebDriverWait(driver,100).until(EC.element_to_be_clickable(("class name","btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt")))
+        driver.find_element("class name", "btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt").click()
+
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+
+        time.sleep(5)
+        
+        html_document_source = driver.find_element('xpath', '//html').get_attribute('outerHTML')
+        soup_source = BeautifulSoup(html_document_source, 'lxml')
+        #soup_source = BeautifulSoup(html_document_source, 'html5lib')
+        #print(soup_source.find_all(['p', 'dir']))
+        soup_text = soup_source.find_all(['p', 'dir'])
+        clean_text = basic_text_clean(soup_text)
+        print(clean_text)
+
+        #print(soup_source.get_text)
+        break
+
+#, src=lambda s: all(word in s for word in ('skillsforall', 'true')))
+#https://stackoverflow.com/questions/23028664/python-beautifulsoup-iframe-document-html-extract
+#https://stackoverflow.com/questions/54522364/python-beautifulsoup-scrape-web-content-inside-iframes
+
+#print(iframes)
+
+
+
+
+print("----------------------------END PROGRAM----------------------------")
