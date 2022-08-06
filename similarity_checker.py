@@ -11,21 +11,20 @@ import numpy
 
 raw_data = []
 
+#get all data from data.csv (or specific columns if wanted)
 pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Company', 'Job Title', 'Description'])
 #pdatabase_linkedin = pandas.read_csv("data.csv", usecols = ['Description'])
 pdatabase_skillsforall = pandas.read_csv("skillsforall_data.csv", usecols = ['Course Content'])
-#print(df)
 
 #append doesnt work for some reason
 raw_data_linkedin = (pdatabase_linkedin.values.tolist())
 raw_data_skillsforall = (pdatabase_skillsforall.values.tolist())
 
-#right now only one index in skillsforall, compare all linkedin (values after (1,1)) to it
+#right now only one index in skillsforall, compare all linkedin (values after (1,1)) to it (see note at top of file)
 for data in raw_data_skillsforall:
     raw_data.append(data)
 for data in raw_data_linkedin:
     raw_data.append([data[2]]) #select 'Description', put in [] to make it work with for in loop in nlp_clean (i think?)
-#print(data)
 
 #clean and prepare data for NLP
 def nlp_clean(raw_data):
@@ -40,8 +39,6 @@ def nlp_clean(raw_data):
             data.append(desc)
         except:
             print("NaN")
-
-    #print(data)
     return(data)
 #end nlp_clean
 
@@ -60,14 +57,29 @@ def cos_similarity(data):
 
 
 #run to get best match between first value (skillsforall) and all linkedin jobs
+#NOTE: in general case, this finds the closest index to the first value in the comparison array, raw_data
+#NOTE: in current case, this finds the closest index to a skillsforall course in the first slot
 def best_match(similarity_matrix):
-    print(similarity_matrix[0])
+    #select first row of similarity matrix & pop first elem out b/c it's 1
+    first_row = similarity_matrix[0][1:]
+    closest_index = find_nearest(first_row,1)
+    closest_company = raw_data_linkedin[closest_index][0]
+    closest_job_title = raw_data_linkedin[closest_index][1]
+    return [closest_company, closest_job_title]
+
+#https://stackoverflow.com/questions/2566412/find-nearest-value-in-numpy-array
+#this is generalized, pass in 1 most of the time, see note in best_match
+def find_nearest(array, value):
+    array = numpy.asarray(array)
+    idx = (numpy.abs(array - value)).argmin()
+    return idx #array[idx]
 
 
 similarity = cos_similarity(data).toarray() #this variable is inefficient, translate sparse array to numpy array
 
-print(similarity)
+#print(similarity)
 print("----------")
-best_match(similarity)
+best_job = best_match(similarity)
+print("The closest job to this course is from " + str(best_job[0]) + ", as a " + str(best_job[1]) + ".")
 
-print("end program")
+#print("end program")
