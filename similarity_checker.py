@@ -59,27 +59,48 @@ def cos_similarity(data):
 #run to get best match between first value (skillsforall) and all linkedin jobs
 #NOTE: in general case, this finds the closest index to the first value in the comparison array, raw_data
 #NOTE: in current case, this finds the closest index to a skillsforall course in the first slot
-def best_match(similarity_matrix):
+def best_match(similarity_matrix, num_matches):
     #select first row of similarity matrix & pop first elem out b/c it's 1
+    retval = []
     first_row = similarity_matrix[0][1:]
-    closest_index = find_nearest(first_row,1)
-    closest_company = raw_data_linkedin[closest_index][0]
-    closest_job_title = raw_data_linkedin[closest_index][1]
-    return [closest_company, closest_job_title]
+
+    if len(first_row) < num_matches:
+        print("ERROR: number of requested matches exceeds avaliable data")
+        return
+
+    closest_indexes = find_nearest(first_row,1,num_matches) #change last value to change number of jobs grabbed
+    for index in closest_indexes:
+        retval.append([raw_data_linkedin[index][0],raw_data_linkedin[index][1]]) #append company name, job title
+    return retval
 
 #https://stackoverflow.com/questions/2566412/find-nearest-value-in-numpy-array
 #this is generalized, pass in 1 most of the time, see note in best_match
-def find_nearest(array, value):
+#array: pass in similarity array, value: value to be closest to, howmany: number of indexes returned
+def find_nearest(array, value, howmany):
+    if len(array) < howmany:
+        print("ERROR: number of requested nearest exceeds avaliable data")
+        return
     array = numpy.asarray(array)
-    idx = (numpy.abs(array - value)).argmin()
-    return idx #array[idx]
+    indexes = []
+    for i in range(howmany):
+        idx = (numpy.abs(array - value)).argmin()
+        indexes.append(idx)
+        array = numpy.delete(array, idx)
+    return indexes #array[idx]
 
 
 similarity = cos_similarity(data).toarray() #this variable is inefficient, translate sparse array to numpy array
 
 #print(similarity)
 print("----------")
-best_job = best_match(similarity)
-print("The closest job to this course is from " + str(best_job[0]) + ", as a " + str(best_job[1]) + ".")
+
+best_jobs = best_match(similarity, 3) #second number for how many closest jobs to grab
+
+for idx, job in enumerate(best_jobs): #use enumerate to get index
+    #add 1 to index to convert from programmer leetcode to normal person
+    print("The #" + str(idx+1) + " closest job to this course is from " + str(job[0]) + ", as a " + str(job[1]) + ".")
 
 #print("end program")
+
+#TODO: get job links from linkedin & display alongside these
+#TODO: output to file
