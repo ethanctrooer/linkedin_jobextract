@@ -37,8 +37,11 @@ def nlp_clean(raw_data):
             desc = re.sub(r'\s{2,}', ' ', desc.strip())
             #inefficient, drop old list for mem or replace values
             data.append(desc)
-        except:
-            print("NaN")
+        except Exception as ex:
+            #print("NaN")
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
     return(data)
 #end nlp_clean
 
