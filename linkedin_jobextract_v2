@@ -1,4 +1,4 @@
-print("----------------------------START PROGRAM----------------------------")
+#print("----------------------------START LINKEDIN JOB EXTRACT----------------------------")
 
 from distutils.command.clean import clean
 from selenium import webdriver
@@ -67,7 +67,7 @@ company_links = []
 
 #get_jobs_from_company(company_links) look for call below
 driver.get("https://www.linkedin.com/jobs")
-search_term = "cybersecurity"
+search_term = "Junior Network Engineer"
 driver.find_element(By.CSS_SELECTOR, '[aria-label="Search by title, skill, or company"]').send_keys(search_term)
 time.sleep(1)
 driver.find_element(By.CSS_SELECTOR, '[aria-label="Search by title, skill, or company"]').send_keys(Keys.RETURN)
@@ -108,7 +108,10 @@ def get_jobs_from_company(company_links):
         length_pages = int(pages[len(pages)-1].text)
 
         #NOTE: iterate through said pages from (1) and (2)
+        page_limit = 0 #FOR TEST LIMITING - enable to limit number of pages searched
         for i in range(2,length_pages+1): #do not include first elem b/c that's loaded initially
+            if page_limit == 2:
+                break #FOR TEST LIMITING - enable to limit number of pages searched
             if i==9: #for case where need to start going into intermediate numbers
                 current_button = driver.find_element(By.CSS_SELECTOR, '[aria-label="Page 9"]')
                 #aria label could also be used below, might be better for longevity
@@ -147,6 +150,8 @@ def get_jobs_from_company(company_links):
             #NOTE: go to next page of jobs_list
             current_button.click()
             time.sleep(3) #really bad get a webdriverwait here
+
+            page_limit += 1
 
     #end main for loop (loop to get ALL jobs listed)
 #end of get_jobs_from_company
