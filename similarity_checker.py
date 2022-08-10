@@ -91,6 +91,15 @@ def find_nearest(array, value, howmany):
         array = numpy.delete(array, idx)
     return indexes #array[idx]
 
+#return number of items above threshold
+#pass in first row of similarity array
+def num_passing(array, index):
+    counter = 0
+    for num in array:
+        if num >= index:
+            counter += 1
+    return counter
+#end num_passing
 
 similarity = cos_similarity(data).toarray() #this variable is inefficient, translate sparse array to numpy array
 
@@ -102,6 +111,8 @@ best_jobs = best_match(similarity, 3) #second number for how many closest jobs t
 for idx, job in enumerate(best_jobs): #use enumerate to get index
     #add 1 to index to convert from programmer leetcode to normal person
     print("The #" + str(idx+1) + " closest job to this course is from " + str(job[0]) + ", as a " + str(job[1]) + ".")
+
+print(str(num_passing(similarity[0,:], 0.05)) + " jobs passed similarity check, out of " + str(len(similarity[0])) + ".")
 
 #print("end program")
 
