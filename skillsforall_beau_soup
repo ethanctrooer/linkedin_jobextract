@@ -27,6 +27,7 @@ def cleanhtml(raw_html):
 
 #see https://www.geeksforgeeks.org/beautifulsoup-scraping-link-from-html/
 
+#note: might be easier here to use safari, or to disable cookies
 driver = webdriver.Chrome("/Users/ethanchen/Downloads/chromedriver")
 
 #----------begin login----------
@@ -76,41 +77,103 @@ def basic_text_clean(soup_text: str):
     return clean_soup
 #end basic_test_clean
 
-iframes = soup.find_all('iframe')
-for i in iframes:
+#get html from current page, write page text to file
+#will not get text from non-standard stuff, like <ul> & <li> elements. see linkedin_jobextract_v2 for this
+#NOTE: not built to take a link b/c was already coded below not to need, pretty bad design
+def get_html_and_write():
+
+    time.sleep(5) #not great
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    
+    html_document_source = driver.find_element('xpath', '//html').get_attribute('outerHTML')
+    soup_source = BeautifulSoup(html_document_source, 'lxml')
+    soup_text = soup_source.find_all(['p', 'dir'])
+
+    clean_text = basic_text_clean(soup_text)
+    course_title = basic_text_clean(soup_source.find_all(['title']))
+
+    print(clean_text)
+    print(course_title)
+
+    to_write = [course_title, clean_text]
+
+    writer.writerow(to_write)
+
+    #NOTE: NEW CODE
+    #if driver.find_element("")
+
+#end get_html_and_write
+
+#extract text from a link (specifically a course)
+#elem is a number set to grab that specific part of the course
+def get_from_iframe(link, part_num):
     #print(i)
     #print(type(i))
-    source = i.get('src')
+    source = link.get('src')
     #print(i.get('src'))
     if "skillsforall" in source:
         driver.get(source)
+        course_parts = [] #this is a list of clickable elements
         #time.sleep(7) #this bad
-        WebDriverWait(driver,100).until(EC.element_to_be_clickable(("class name","introoutro__action.btn-action.introoutro__skip")))
-        driver.find_element("class name", "introoutro__action.btn-action.introoutro__skip").click()
-        WebDriverWait(driver,100).until(EC.element_to_be_clickable(("class name","btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt")))
-        driver.find_element("class name", "btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt").click()
+        try:
+            WebDriverWait(driver,3).until(EC.element_to_be_clickable(("class name","introoutro__action.btn-action.introoutro__skip")))
+            driver.find_element("class name", "introoutro__action.btn-action.introoutro__skip").click()
+        except Exception as ex:
+            print("error 1")
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
+        #not sure if this is needed
+        try:
+            WebDriverWait(driver,3).until(EC.element_to_be_clickable(("class name","btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt")))
+            driver.find_element("class name", "btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt").click()
+        except Exception as ex:
+            print("error 2")
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
+        #main block, for navigation page per module
+        try:
+            WebDriverWait(driver,5).until(EC.element_to_be_clickable(("class name","menu-item__title.boxmenu-item__title")))
+            course_parts = driver.find_elements("class name", "menu-item__title.boxmenu-item__title")
+            #course_part = driver.find_element("class name", "menu-item__title.boxmenu-item__title")
+            #/html/body/div[4]/div/div[2]/div/div[3]/div/div[1]/div/div/div/div[1]
+            #WebDriverWait(driver,5).until(EC.element_to_be_clickable(("xpath","menu-item__title.boxmenu-item__title")))
+            #driver.find_element("class name", "menu-item__title.boxmenu-item__title").click()
+        except Exception as ex:
+            print("error 3")
+            template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+            message = template.format(type(ex).__name__, ex.args)
+            print(message)
 
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-        time.sleep(5) #not great
+        #each part in course_parts is attatched to old window
+        #easiest way to do this so far is to recurse, get each time, move to next part
+        #TODO: HELLLA inefficient. find new way to do this
         
-        html_document_source = driver.find_element('xpath', '//html').get_attribute('outerHTML')
-        soup_source = BeautifulSoup(html_document_source, 'lxml')
-        #soup_source = BeautifulSoup(html_document_source, 'html5lib')
-        #print(soup_source.find_all(['p', 'dir']))
-        soup_text = soup_source.find_all(['p', 'dir'])
-        clean_text = basic_text_clean(soup_text)
+        #NOTE:end condition for recursion
+        #had to put here to put it after course_parts getter
+        if part_num > len(course_parts):
+            return
 
-        course_title = basic_text_clean(soup_source.find_all(['title']))
+        #set part to the one in this iteration
+        part = course_parts[part_num]
 
-        print(clean_text)
-        print(course_title)
+        part.click()
+        get_html_and_write()
 
-        to_write = [course_title, clean_text]
+        #driver.close()
+        #driver.switch_to.window(parent_tab)
+       
+        #recurse (not really, but whatever)
+        next_part = part_num + 1
+        get_from_iframe(link, next_part)
+        #NOTE: so fuckin jank
+        
+#end get_from_iframe
 
-        writer.writerow(to_write)
-
-        break
+time.sleep(2)
+iframes = soup.find_all('iframe')
+get_from_iframe(iframes[1], 0) #or pass in all in for loop, func built to protect (poorly)
 
 #, src=lambda s: all(word in s for word in ('skillsforall', 'true')))
 #https://stackoverflow.com/questions/23028664/python-beautifulsoup-iframe-document-html-extract
