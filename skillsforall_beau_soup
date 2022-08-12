@@ -106,7 +106,7 @@ def get_html_and_write():
 
 #extract text from a link (specifically a course)
 #elem is a number set to grab that specific part of the course
-def get_from_iframe(link, part_num):
+def get_from_iframe(link):
     #print(i)
     #print(type(i))
     source = link.get('src')
@@ -114,6 +114,7 @@ def get_from_iframe(link, part_num):
     if "skillsforall" in source:
         driver.get(source)
         course_parts = [] #this is a list of clickable elements
+        course_part = ""
         #time.sleep(7) #this bad
         try:
             WebDriverWait(driver,3).until(EC.element_to_be_clickable(("class name","introoutro__action.btn-action.introoutro__skip")))
@@ -135,8 +136,8 @@ def get_from_iframe(link, part_num):
         #main block, for navigation page per module
         try:
             WebDriverWait(driver,5).until(EC.element_to_be_clickable(("class name","menu-item__title.boxmenu-item__title")))
-            course_parts = driver.find_elements("class name", "menu-item__title.boxmenu-item__title")
-            #course_part = driver.find_element("class name", "menu-item__title.boxmenu-item__title")
+            #course_parts = driver.find_elements("class name", "menu-item__title.boxmenu-item__title")
+            course_part = driver.find_element("class name", "menu-item__title.boxmenu-item__title")
             #/html/body/div[4]/div/div[2]/div/div[3]/div/div[1]/div/div/div/div[1]
             #WebDriverWait(driver,5).until(EC.element_to_be_clickable(("xpath","menu-item__title.boxmenu-item__title")))
             #driver.find_element("class name", "menu-item__title.boxmenu-item__title").click()
@@ -149,31 +150,33 @@ def get_from_iframe(link, part_num):
         #each part in course_parts is attatched to old window
         #easiest way to do this so far is to recurse, get each time, move to next part
         #TODO: HELLLA inefficient. find new way to do this
-        
-        #NOTE:end condition for recursion
-        #had to put here to put it after course_parts getter
-        if part_num > len(course_parts):
-            return
 
         #set part to the one in this iteration
-        part = course_parts[part_num]
+        #part = course_parts[part_num]
 
-        part.click()
-        get_html_and_write()
+        #part.click()
+        course_part.click()
 
-        #driver.close()
-        #driver.switch_to.window(parent_tab)
-       
-        #recurse (not really, but whatever)
-        next_part = part_num + 1
-        get_from_iframe(link, next_part)
+        while True:
+            try:
+                get_html_and_write()
+                WebDriverWait(driver,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[aria-label="Next Page Incomplete"]')))
+                driver.find_element(By.CSS_SELECTOR, '[aria-label="Next Page Incomplete"]').click()
+            except:
+                print("error 4")
+                template = "An exception of type {0} occurred. Arguments:\n{1!r}"
+                message = template.format(type(ex).__name__, ex.args)
+                print(message)
+                break
+        #end of while loop
+        print("end of iframe")
         #NOTE: so fuckin jank
         
 #end get_from_iframe
 
 time.sleep(2)
 iframes = soup.find_all('iframe')
-get_from_iframe(iframes[1], 0) #or pass in all in for loop, func built to protect (poorly)
+get_from_iframe(iframes[1]) #or pass in all in for loop, func built to protect (poorly)
 
 #, src=lambda s: all(word in s for word in ('skillsforall', 'true')))
 #https://stackoverflow.com/questions/23028664/python-beautifulsoup-iframe-document-html-extract
