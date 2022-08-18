@@ -5,6 +5,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.action_chains import ActionChains
 import time
 from bs4 import BeautifulSoup
 import requests
@@ -104,8 +105,37 @@ def get_html_and_write():
 
 #end get_html_and_write
 
+#must already be on a course page
+def get_iframes():
+    module_iframes = []
+    #modules = driver.find_elements(By.CSS_SELECTOR, 'div[type="vertical"]')
+    buttons = driver.find_elements(By.CSS_SELECTOR, 'button[role="button"]')
+    #print(modules)
+    #print(buttons)
+    buttons.pop(0) #remove the intro to course header
+    buttons.pop(0) #remove the course navigation tutorial
+    for button in buttons:
+        WebDriverWait(driver,10).until(EC.element_to_be_clickable((button)))
+        #https://stackoverflow.com/questions/37879010/selenium-debugging-element-is-not-clickable-at-point-x-y
+        #button.click()
+        ActionChains(driver).move_to_element(button).click(button).perform() #NOTE: MUST be focused on window when this happens, or it fails
+        #WebDriverWait(driver, 10).until(EC.visibility_of(('xpath', '//iframe'))) #visibility_of
+        time.sleep(7)
+        #driver.execute_script("arguments[0].click();", module)
+        #module.send_keys("\n")
+        #iframes = driver.find_elements(By.CSS_SELECTOR, 'iframe[src]')
+        html_document = driver.find_element('xpath', '//html').get_attribute('outerHTML')
+        soup = BeautifulSoup(html_document, 'lxml')
+        soup_iframes = soup.find_all('iframe')
+        module_iframes.append(soup_iframes[1])
+        #print(iframes.current_url)
+    return module_iframes
+#end get_iframes
+
+
 #extract text from a link (specifically a course)
 #elem is a number set to grab that specific part of the course
+#click on all module links first then run this function
 def get_from_iframe(link):
     #print(i)
     #print(type(i))
@@ -127,7 +157,9 @@ def get_from_iframe(link):
         #not sure if this is needed
         try:
             WebDriverWait(driver,3).until(EC.element_to_be_clickable(("class name","btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt")))
-            driver.find_element("class name", "btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt").click()
+            #driver.find_element("class name", "btn-text.notify__btn.notify__btn-prompt.js-notify-btn-prompt").click()
+            #trying to click no here
+            driver.find_element(By.CSS_SELECTOR, '[aria-label="No"]').click()
         except Exception as ex:
             print("error 2")
             template = "An exception of type {0} occurred. Arguments:\n{1!r}"
@@ -162,7 +194,7 @@ def get_from_iframe(link):
                 get_html_and_write()
                 WebDriverWait(driver,3).until(EC.element_to_be_clickable((By.CSS_SELECTOR, '[aria-label="Next Page Incomplete"]')))
                 driver.find_element(By.CSS_SELECTOR, '[aria-label="Next Page Incomplete"]').click()
-            except:
+            except Exception as ex:
                 print("error 4")
                 template = "An exception of type {0} occurred. Arguments:\n{1!r}"
                 message = template.format(type(ex).__name__, ex.args)
@@ -175,8 +207,15 @@ def get_from_iframe(link):
 #end get_from_iframe
 
 time.sleep(2)
-iframes = soup.find_all('iframe')
-get_from_iframe(iframes[1]) #or pass in all in for loop, func built to protect (poorly)
+
+iframes = get_iframes()
+
+#iframes = soup.find_all('iframe')
+#get_from_iframe(iframes[1]) #or pass in all in for loop, func built to protect (poorly)
+
+for iframe in iframes:
+    get_from_iframe(iframe)
+#end for loop
 
 #, src=lambda s: all(word in s for word in ('skillsforall', 'true')))
 #https://stackoverflow.com/questions/23028664/python-beautifulsoup-iframe-document-html-extract
@@ -188,3 +227,8 @@ writer.close()
 
 
 print("----------------------------END PROGRAM----------------------------")
+
+#problem statement
+#multiple approaches from NLP standpoint
+#basic results
+#next
